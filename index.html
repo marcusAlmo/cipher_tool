@@ -496,7 +496,7 @@
         </div>
     </div>
 
-    <script>
+     <script>
         // =====================
         // Utility Functions
         // =====================
@@ -520,8 +520,14 @@
             return /^[0-9A-Fa-f]+$/.test(str);
         }
 
+        function padToBlockSize(text, blockSizeBytes = 8) {
+            const blockSize = blockSizeBytes * 2; // In hex characters
+            const paddingLength = (blockSize - (text.length % blockSize)) % blockSize;
+            return text + '0'.repeat(paddingLength);
+        }
+
         // =====================
-        // RC5 Implementation
+        // RC5 Implementation (Simplified but more accurate)
         // =====================
         function processRC5(operation) {
             try {
@@ -530,6 +536,7 @@
                 const rounds = parseInt(document.getElementById('rc5-rounds').value) || 12;
 
                 if (!plaintext || !key) throw new Error('Plaintext and key required!');
+                if (rounds < 1 || rounds > 255) throw new Error('Rounds must be between 1-255');
 
                 const result = (operation === 'encrypt') 
                     ? rc5Encrypt(plaintext, key, rounds) 
@@ -545,30 +552,159 @@
 
         function rc5Encrypt(plaintext, key, rounds) {
             const keyHex = isHex(key) ? key : stringToHex(key);
-            const plaintextHex = isHex(plaintext) ? plaintext : stringToHex(plaintext);
+            let plaintextHex = isHex(plaintext) ? plaintext : stringToHex(plaintext);
             
-            // Simplified encryption logic (for demo)
+            // Pad to 64-bit (8 byte) blocks
+            plaintextHex = padToBlockSize(plaintextHex);
+            
+            // Generate subkeys (simplified but more realistic than XOR)
+            const subkeys = generateRC5Subkeys(keyHex, rounds);
+            
             let encrypted = '';
-            for (let i = 0; i < plaintextHex.length; i++) {
-                const charCode = parseInt(plaintextHex.substr(i, 2), 16) ^ 
-                                 parseInt(keyHex.substr(i % keyHex.length, 2), 16);
-                encrypted += charCode.toString(16).padStart(2, '0');
+            const roundsDetail = [];
+            
+            // Process each 64-bit block
+            for (let i = 0; i < plaintextHex.length; i += 16) {
+                let block = plaintextHex.substr(i, 16);
+                let A = parseInt(block.substr(0, 8), 16);
+                let B = parseInt(block.substr(8, 8), 16);
+                
+                // Initial whitening
+                A = (A + subkeys[0]) >>> 0;
+                B = (B + subkeys[1]) >>> 0;
+                roundsDetail.push({
+                    round: 0,
+                    operation: "Initial Whitening",
+                    input: block,
+                    subkey: `${subkeys[0].toString(16)} ${subkeys[1].toString(16)}`,
+                    output: `${A.toString(16)} ${B.toString(16)}`
+                });
+                
+                // Rounds
+                for (let r = 1; r <= rounds; r++) {
+                    const prevA = A, prevB = B;
+                    
+                    A = ((A ^ B) <<< (B & 0x1F)) + subkeys[2*r];
+                    B = ((B ^ A) <<< (A & 0x1F)) + subkeys[2*r+1];
+                    
+                    roundsDetail.push({
+                        round: r,
+                        operation: `Round ${r}`,
+                        input: `${prevA.toString(16)} ${prevB.toString(16)}`,
+                        subkey: `${subkeys[2*r].toString(16)} ${subkeys[2*r+1].toString(16)}`,
+                        output: `${A.toString(16)} ${B.toString(16)}`
+                    });
+                }
+                
+                encrypted += A.toString(16).padStart(8, '0') + B.toString(16).padStart(8, '0');
             }
-
+            
             return {
                 output: `Encrypted: ${encrypted}`,
-                rounds: Array.from({ length: rounds }, (_, i) => ({
-                    round: i + 1,
-                    operation: `Round ${i + 1}`,
-                    input: plaintextHex,
-                    subkey: keyHex.substr(i * 2 % keyHex.length, 8),
-                    output: encrypted
-                }))
+                rounds: roundsDetail
             };
         }
 
+        function rc5Decrypt(ciphertext, key, rounds) {
+            const keyHex = isHex(key) ? key : stringToHex(key);
+            let ciphertextHex = isHex(ciphertext) ? ciphertext : stringToHex(ciphertext);
+            
+            // Generate subkeys
+            const subkeys = generateRC5Subkeys(keyHex, rounds);
+            
+            let decrypted = '';
+            const roundsDetail = [];
+            
+            // Process each 64-bit block
+            for (let i = 0; i < ciphertextHex.length; i += 16) {
+                let block = ciphertextHex.substr(i, 16);
+                let A = parseInt(block.substr(0, 8), 16);
+                let B = parseInt(block.substr(8, 8), 16);
+                
+                roundsDetail.push({
+                    round: rounds+1,
+                    operation: "Ciphertext Input",
+                    input: block,
+                    subkey: "N/A",
+                    output: `${A.toString(16)} ${B.toString(16)}`
+                });
+                
+                // Reverse rounds
+                for (let r = rounds; r >= 1; r--) {
+                    const prevA = A, prevB = B;
+                    
+                    B = ((B - subkeys[2*r+1]) >>> (A & 0x1F)) ^ A;
+                    A = ((A - subkeys[2*r]) >>> (B & 0x1F)) ^ B;
+                    
+                    roundsDetail.push({
+                        round: r,
+                        operation: `Round ${r} (Reverse)`,
+                        input: `${prevA.toString(16)} ${prevB.toString(16)}`,
+                        subkey: `${subkeys[2*r].toString(16)} ${subkeys[2*r+1].toString(16)}`,
+                        output: `${A.toString(16)} ${B.toString(16)}`
+                    });
+                }
+                
+                // Final whitening
+                B = (B - subkeys[1]) >>> 0;
+                A = (A - subkeys[0]) >>> 0;
+                
+                decrypted += A.toString(16).padStart(8, '0') + B.toString(16).padStart(8, '0');
+            }
+            
+            try {
+                return {
+                    output: `Decrypted: ${hexToString(decrypted.replace(/00+$/, ''))}`,
+                    rounds: roundsDetail
+                };
+            } catch (e) {
+                return {
+                    output: `Decrypted (hex): ${decrypted}`,
+                    rounds: roundsDetail
+                };
+            }
+        }
+
+        function generateRC5Subkeys(keyHex, rounds) {
+            const subkeys = [];
+            const keyWords = [];
+            
+            // Convert key to 32-bit words
+            for (let i = 0; i < keyHex.length; i += 8) {
+                keyWords.push(parseInt(keyHex.substr(i, 8), 16) || 0);
+            }
+            
+            // Magic constants
+            const P32 = 0xb7e15163;
+            const Q32 = 0x9e3779b9;
+            
+            // Initialize subkeys
+            subkeys.push(P32);
+            for (let i = 1; i < 2*(rounds+1); i++) {
+                subkeys.push((subkeys[i-1] + Q32) >>> 0);
+            }
+            
+            // Mix key material
+            let A = B = i = j = 0;
+            const max = 3 * Math.max(keyWords.length, subkeys.length);
+            
+            for (let k = 0; k < max; k++) {
+                A = subkeys[i] = (subkeys[i] + A + B) <<< 3;
+                B = keyWords[j] = (keyWords[j] + A + B) <<< (A + B);
+                i = (i + 1) % subkeys.length;
+                j = (j + 1) % keyWords.length;
+            }
+            
+            return subkeys;
+        }
+
+        // Rotate left helper
+        Number.prototype.<<< = function(n) {
+            return ((this << n) | (this >>> (32 - n))) >>> 0;
+        };
+
         // =====================
-        // Blowfish Implementation
+        // Blowfish Implementation (Simplified but more accurate)
         // =====================
         function processBlowfish(operation) {
             try {
@@ -590,31 +726,164 @@
             }
         }
 
+        // Initialize P-array and S-boxes with pi digits
+        const blowfish_P = [
+            0x243f6a88, 0x85a308d3, 0x13198a2e, 0x03707344, 0xa4093822, 0x299f31d0,
+            0x082efa98, 0xec4e6c89, 0x452821e6, 0x38d01377, 0xbe5466cf, 0x34e90c6c,
+            0xc0ac29b7, 0xc97c50dd, 0x3f84d5b5, 0xb5470917, 0x9216d5d9, 0x8979fb1b
+        ];
+
+        const blowfish_S = [
+            /* S-boxes would go here (4 boxes of 256 entries each) */
+            /* For demo, we'll use simplified versions */
+        ];
+
         function blowfishEncrypt(plaintext, key) {
-            // Simplified Blowfish-like encryption
-            const keyHex = stringToHex(key);
-            const plaintextHex = stringToHex(plaintext);
+            const keyHex = isHex(key) ? key : stringToHex(key);
+            let plaintextHex = isHex(plaintext) ? plaintext : stringToHex(plaintext);
+            
+            // Pad to 64-bit blocks
+            plaintextHex = padToBlockSize(plaintextHex, 8);
+            
+            // Initialize P-array and S-boxes with key
+            const P = [...blowfish_P];
+            const S = [...blowfish_S];
+            blowfishKeySchedule(P, S, keyHex);
+            
             let encrypted = '';
-
+            const roundsDetail = [];
+            
+            // Process each 64-bit block
             for (let i = 0; i < plaintextHex.length; i += 16) {
-                const block = plaintextHex.substr(i, 16).padEnd(16, '0');
-                encrypted += block.split('').reverse().join(''); // Mock "encryption"
+                let block = plaintextHex.substr(i, 16);
+                let L = parseInt(block.substr(0, 8), 16);
+                let R = parseInt(block.substr(8, 8), 16);
+                
+                roundsDetail.push({
+                    round: 0,
+                    operation: "Block Input",
+                    input: block,
+                    subkey: "N/A",
+                    output: `${L.toString(16)} ${R.toString(16)}`
+                });
+                
+                // 16 Feistel rounds
+                for (let r = 0; r < 16; r++) {
+                    const prevL = L, prevR = R;
+                    
+                    L ^= P[r];
+                    R = F(L) ^ R;
+                    
+                    // Swap
+                    [L, R] = [R, L];
+                    
+                    roundsDetail.push({
+                        round: r+1,
+                        operation: `Feistel Round ${r+1}`,
+                        input: `${prevL.toString(16)} ${prevR.toString(16)}`,
+                        subkey: P[r].toString(16),
+                        output: `${L.toString(16)} ${R.toString(16)}`
+                    });
+                }
+                
+                // Final swap and post-whitening
+                [L, R] = [R, L];
+                R ^= P[16];
+                L ^= P[17];
+                
+                encrypted += L.toString(16).padStart(8, '0') + R.toString(16).padStart(8, '0');
             }
-
+            
             return {
                 output: `Encrypted: ${encrypted}`,
-                rounds: Array.from({ length: 16 }, (_, i) => ({
-                    round: i + 1,
-                    operation: `Feistel Round ${i + 1}`,
-                    input: plaintextHex,
-                    subkey: keyHex.substr(i * 2 % keyHex.length, 8),
-                    output: encrypted
-                }))
+                rounds: roundsDetail
             };
         }
 
+        function blowfishDecrypt(ciphertext, key) {
+            const keyHex = isHex(key) ? key : stringToHex(key);
+            let ciphertextHex = isHex(ciphertext) ? ciphertext : stringToHex(ciphertext);
+            
+            // Initialize P-array and S-boxes with key
+            const P = [...blowfish_P];
+            const S = [...blowfish_S];
+            blowfishKeySchedule(P, S, keyHex);
+            
+            let decrypted = '';
+            const roundsDetail = [];
+            
+            // Process each 64-bit block
+            for (let i = 0; i < ciphertextHex.length; i += 16) {
+                let block = ciphertextHex.substr(i, 16);
+                let L = parseInt(block.substr(0, 8), 16);
+                let R = parseInt(block.substr(8, 8), 16);
+                
+                roundsDetail.push({
+                    round: 17,
+                    operation: "Ciphertext Input",
+                    input: block,
+                    subkey: "N/A",
+                    output: `${L.toString(16)} ${R.toString(16)}`
+                });
+                
+                // Reverse 16 Feistel rounds
+                for (let r = 17; r >= 2; r--) {
+                    const prevL = L, prevR = R;
+                    
+                    L ^= P[r];
+                    R = F(L) ^ R;
+                    
+                    // Swap
+                    [L, R] = [R, L];
+                    
+                    roundsDetail.push({
+                        round: r-1,
+                        operation: `Feistel Round ${r-1} (Reverse)`,
+                        input: `${prevL.toString(16)} ${prevR.toString(16)}`,
+                        subkey: P[r].toString(16),
+                        output: `${L.toString(16)} ${R.toString(16)}`
+                    });
+                }
+                
+                // Final swap and post-whitening
+                [L, R] = [R, L];
+                R ^= P[1];
+                L ^= P[0];
+                
+                decrypted += L.toString(16).padStart(8, '0') + R.toString(16).padStart(8, '0');
+            }
+            
+            try {
+                return {
+                    output: `Decrypted: ${hexToString(decrypted.replace(/00+$/, ''))}`,
+                    rounds: roundsDetail
+                };
+            } catch (e) {
+                return {
+                    output: `Decrypted (hex): ${decrypted}`,
+                    rounds: roundsDetail
+                };
+            }
+        }
+
+        function blowfishKeySchedule(P, S, keyHex) {
+            // XOR P-array with key bytes
+            for (let i = 0; i < 18; i++) {
+                const keyPart = keyHex.substr((i % keyHex.length) * 8, 8);
+                P[i] ^= parseInt(keyPart || '0', 16);
+            }
+            
+            // For a real implementation, we'd encrypt all-zero blocks here
+            // to further mix the P and S arrays, but we'll skip for demo
+        }
+
+        function F(x) {
+            // Simplified F function for demo
+            return (x * 0x9e3779b9) >>> 0; // Mock F function
+        }
+
         // =====================
-        // Triple DES Implementation
+        // Triple DES Implementation (More accurate)
         // =====================
         function processTripleDES(operation) {
             try {
@@ -638,26 +907,161 @@
         }
 
         function tripleDESEncrypt(plaintext, key, mode) {
-            // Simplified 3DES logic
-            const keyHex = stringToHex(key).substr(0, 48);
-            const plaintextHex = stringToHex(plaintext);
+            const keyHex = isHex(key) ? key : stringToHex(key);
+            let plaintextHex = isHex(plaintext) ? plaintext : stringToHex(plaintext);
+            
+            // Pad to 64-bit blocks
+            plaintextHex = padToBlockSize(plaintextHex, 8);
+            
+            // Split key into 3 parts (each 8 bytes)
+            const K1 = keyHex.substr(0, 16);
+            const K2 = keyHex.substr(16, 16);
+            const K3 = (mode === 'EDE') ? K1 : keyHex.substr(32, 16);
+            
             let encrypted = '';
-
+            const roundsDetail = [];
+            
+            // Process each 64-bit block
             for (let i = 0; i < plaintextHex.length; i += 16) {
-                const block = plaintextHex.substr(i, 16).padEnd(16, '0');
-                encrypted += (mode === 'EDE') 
-                    ? `EDE(${block})` 
-                    : `EEE(${block})`;
+                let block = plaintextHex.substr(i, 16);
+                
+                roundsDetail.push({
+                    round: 0,
+                    operation: "Block Input",
+                    input: block,
+                    key: "N/A",
+                    output: block
+                });
+                
+                // First DES encryption
+                let step1 = desEncrypt(block, K1);
+                roundsDetail.push({
+                    round: 1,
+                    operation: "DES Encrypt",
+                    input: block,
+                    key: K1,
+                    output: step1
+                });
+                
+                // Second DES (encrypt/decrypt based on mode)
+                let step2 = (mode === 'EDE') ? desDecrypt(step1, K2) : desEncrypt(step1, K2);
+                roundsDetail.push({
+                    round: 2,
+                    operation: (mode === 'EDE') ? "DES Decrypt" : "DES Encrypt",
+                    input: step1,
+                    key: K2,
+                    output: step2
+                });
+                
+                // Third DES encryption
+                let step3 = desEncrypt(step2, K3);
+                roundsDetail.push({
+                    round: 3,
+                    operation: "DES Encrypt",
+                    input: step2,
+                    key: K3,
+                    output: step3
+                });
+                
+                encrypted += step3;
             }
-
+            
             return {
                 output: `Encrypted (${mode} mode): ${encrypted}`,
-                rounds: [
-                    { round: 1, operation: 'DES Encrypt', input: plaintextHex, key: keyHex.substr(0, 16), output: '...' },
-                    { round: 2, operation: 'DES Decrypt', input: '...', key: keyHex.substr(16, 16), output: '...' },
-                    { round: 3, operation: 'DES Encrypt', input: '...', key: keyHex.substr(32, 16), output: encrypted }
-                ]
+                rounds: roundsDetail
             };
+        }
+
+        function tripleDESDecrypt(ciphertext, key, mode) {
+            const keyHex = isHex(key) ? key : stringToHex(key);
+            let ciphertextHex = isHex(ciphertext) ? ciphertext : stringToHex(ciphertext);
+            
+            // Split key into 3 parts (each 8 bytes)
+            const K1 = keyHex.substr(0, 16);
+            const K2 = keyHex.substr(16, 16);
+            const K3 = (mode === 'EDE') ? K1 : keyHex.substr(32, 16);
+            
+            let decrypted = '';
+            const roundsDetail = [];
+            
+            // Process each 64-bit block
+            for (let i = 0; i < ciphertextHex.length; i += 16) {
+                let block = ciphertextHex.substr(i, 16);
+                
+                roundsDetail.push({
+                    round: 4,
+                    operation: "Ciphertext Input",
+                    input: block,
+                    key: "N/A",
+                    output: block
+                });
+                
+                // First DES decrypt
+                let step1 = desDecrypt(block, K3);
+                roundsDetail.push({
+                    round: 3,
+                    operation: "DES Decrypt",
+                    input: block,
+                    key: K3,
+                    output: step1
+                });
+                
+                // Second DES (encrypt/decrypt based on mode)
+                let step2 = (mode === 'EDE') ? desEncrypt(step1, K2) : desDecrypt(step1, K2);
+                roundsDetail.push({
+                    round: 2,
+                    operation: (mode === 'EDE') ? "DES Encrypt" : "DES Decrypt",
+                    input: step1,
+                    key: K2,
+                    output: step2
+                });
+                
+                // Third DES decrypt
+                let step3 = desDecrypt(step2, K1);
+                roundsDetail.push({
+                    round: 1,
+                    operation: "DES Decrypt",
+                    input: step2,
+                    key: K1,
+                    output: step3
+                });
+                
+                decrypted += step3;
+            }
+            
+            try {
+                return {
+                    output: `Decrypted: ${hexToString(decrypted.replace(/00+$/, ''))}`,
+                    rounds: roundsDetail
+                };
+            } catch (e) {
+                return {
+                    output: `Decrypted (hex): ${decrypted}`,
+                    rounds: roundsDetail
+                };
+            }
+        }
+
+        function desEncrypt(block, key) {
+            // Simplified DES encryption for demo
+            // In a real implementation, this would include:
+            // - Initial permutation
+            // - 16 Feistel rounds
+            // - Final permutation
+            // Here we just XOR with key for demo purposes
+            let result = '';
+            for (let i = 0; i < block.length; i++) {
+                const b = parseInt(block.substr(i, 1), 16);
+                const k = parseInt(key.substr(i % key.length, 1), 16);
+                result += (b ^ k).toString(16);
+            }
+            return result;
+        }
+
+        function desDecrypt(block, key) {
+            // DES decryption is same as encryption with reversed key schedule
+            // For demo, we'll just use the same function
+            return desEncrypt(block, key);
         }
 
         // =====================
@@ -670,7 +1074,7 @@
                     <div class="round-header">${round.operation}</div>
                     <div class="round-details">
                         Input: ${round.input}<br>
-                        Key: ${round.subkey || round.key || 'N/A'}<br>
+                        ${round.subkey ? 'Subkey' : round.key ? 'Key' : ''}: ${round.subkey || round.key || 'N/A'}<br>
                         Output: ${round.output}
                     </div>
                 </div>
@@ -722,7 +1126,12 @@
             // Attach clear functions
             document.querySelectorAll('.btn-secondary').forEach(btn => {
                 const algorithm = btn.closest('.algorithm-page').id;
-                btn.onclick = () => clearFields(algorithm);
+                btn.addEventListener('click', () => clearFields(algorithm));
+            });
+            
+            // Attach print function
+            document.querySelectorAll('.btn-print').forEach(btn => {
+                btn.addEventListener('click', printPage);
             });
         });
     </script>
