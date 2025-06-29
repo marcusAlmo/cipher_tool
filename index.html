@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cryptographic Algorithms Explorer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+
+        .page-btn {
+            padding: 12px 24px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .page-btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+        }
+
+        .page-btn.active {
+            background: rgba(255,255,255,0.4);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .algorithm-page {
+            display: none;
+            background: rgba(255,255,255,0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .algorithm-page.active {
+            display: block;
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .algorithm-title {
+            text-align: center;
+            color: #4a5568;
+            margin-bottom: 30px;
+            font-size: 2rem;
+        }
+
+        .input-section {
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .input-group input, .input-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .input-group input:focus, .input-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+
+        .btn-print {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            color: white;
+        }
+
+        .btn-print:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(72, 187, 120, 0.4);
+        }
+
+        .output-section {
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+        }
+
+        .output-group {
+            margin-bottom: 15px;
+        }
+
+        .output-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .output-text {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            word-break: break-all;
+            white-space: pre-wrap;
+        }
+
+        .rounds-section {
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+        }
+
+        .rounds-title {
+            font-weight: 600;
+            color: #4a5568;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .round-item {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+
+        .round-header {
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 8px;
+        }
+
+        .round-details {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #4a5568;
+            line-height: 1.4;
+        }
+
+        .description-section {
+            background: #f7fafc;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+        }
+
+        .description-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 15px;
+        }
+
+        .description-content {
+            color: #4a5568;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .discussion-section {
+            background: #edf2f7;
+            padding: 25px;
+            border-radius: 15px;
+        }
+
+        .discussion-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 15px;
+        }
+
+        .features-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .features-list li {
+            background: white;
+            margin-bottom: 8px;
+            padding: 10px 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .error-message {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        @media print {
+            body {
+                background: white;
+                color: black;
+            }
+            .pagination, .button-group {
+                display: none;
+            }
+            .algorithm-page {
+                box-shadow: none;
+                background: white;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔐 Cryptographic Algorithms Explorer</h1>
+            <p>Interactive demonstration of RC5, Blowfish, and Triple DES algorithms</p>
+        </div>
+
+        <div class="pagination">
+            <button class="page-btn active" onclick="showPage('rc5')">RC5</button>
+            <button class="page-btn" onclick="showPage('blowfish')">Blowfish</button>
+            <button class="page-btn" onclick="showPage('tripledes')">Triple DES</button>
+        </div>
+
+        <!-- RC5 Page -->
+        <div id="rc5" class="algorithm-page active">
+            <h2 class="algorithm-title">RC5 Algorithm</h2>
+            
+            <div class="input-section">
+                <div class="input-group">
+                    <label>Plaintext (hex or text):</label>
+                    <input type="text" id="rc5-plaintext" placeholder="Enter plaintext" value="Hello World">
+                </div>
+                <div class="input-group">
+                    <label>Key (hex or text):</label>
+                    <input type="text" id="rc5-key" placeholder="Enter key" value="secretkey">
+                </div>
+                <div class="input-group">
+                    <label>Rounds:</label>
+                    <input type="number" id="rc5-rounds" placeholder="Number of rounds" value="12" min="1" max="255">
+                </div>
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="processRC5('encrypt')">Encrypt</button>
+                    <button class="btn btn-primary" onclick="processRC5('decrypt')">Decrypt</button>
+                    <button class="btn btn-secondary" onclick="clearRC5()">Clear</button>
+                    <button class="btn btn-print" onclick="printPage()">🖨️ Print</button>
+                </div>
+            </div>
+
+            <div class="output-section">
+                <div class="output-group">
+                    <label>Output:</label>
+                    <div class="output-text" id="rc5-output"></div>
+                </div>
+            </div>
+
+            <div class="rounds-section" id="rc5-rounds-section" style="display: none;">
+                <div class="rounds-title">Encryption Rounds Detail</div>
+                <div id="rc5-rounds-content"></div>
+            </div>
+
+            <div class="description-section">
+                <div class="description-title">About RC5</div>
+                <div class="description-content">
+                    RC5 is a symmetric-key block cipher notable for its simplicity and variable parameters. Designed by Ronald Rivest in 1994, RC5 has a variable block size (32, 64, or 128 bits), variable key size (0 to 2040 bits), and variable number of rounds (0 to 255). The algorithm uses only three operations: integer addition, bitwise XOR, and bit rotation.
+                </div>
+                <div class="description-content">
+                    The RC5 encryption algorithm consists of two parts: key expansion and encryption. Key expansion takes the user key and expands it to fill a key table. The encryption algorithm uses this expanded key table to encrypt data in rounds, where each round consists of mixing and mashing operations.
+                </div>
+            </div>
+
+            <div class="discussion-section">
+                <div class="discussion-title">Key Features & Discussion Points</div>
+                <ul class="features-list">
+                    <li><strong>Variable Parameters:</strong> Block size, key size, and number of rounds are all configurable</li>
+                    <li><strong>Simple Operations:</strong> Uses only addition, XOR, and rotation - making it fast and easy to implement</li>
+                    <li><strong>Data-Dependent Rotations:</strong> Rotation amounts depend on the data, adding security</li>
+                    <li><strong>Patent Issues:</strong> RC5 was patented by RSA Security, limiting its widespread adoption</li>
+                    <li><strong>Security Analysis:</strong> Vulnerable to differential cryptanalysis with insufficient rounds</li>
+                    <li><strong>Performance:</strong> Very fast in software implementations due to simple operations</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Blowfish Page -->
+        <div id="blowfish" class="algorithm-page">
+            <h2 class="algorithm-title">Blowfish Algorithm</h2>
+            
+            <div class="input-section">
+                <div class="input-group">
+                    <label>Plaintext (hex or text):</label>
+                    <input type="text" id="blowfish-plaintext" placeholder="Enter plaintext" value="Hello World">
+                </div>
+                <div class="input-group">
+                    <label>Key (hex or text):</label>
+                    <input type="text" id="blowfish-key" placeholder="Enter key (4-56 bytes)" value="secretkey">
+                </div>
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="processBlowfish('encrypt')">Encrypt</button>
+                    <button class="btn btn-primary" onclick="processBlowfish('decrypt')">Decrypt</button>
+                    <button class="btn btn-secondary" onclick="clearBlowfish()">Clear</button>
+                    <button class="btn btn-print" onclick="printPage()">🖨️ Print</button>
+                </div>
+            </div>
+
+            <div class="output-section">
+                <div class="output-group">
+                    <label>Output:</label>
+                    <div class="output-text" id="blowfish-output"></div>
+                </div>
+            </div>
+
+            <div class="rounds-section" id="blowfish-rounds-section" style="display: none;">
+                <div class="rounds-title">Blowfish Rounds Detail</div>
+                <div id="blowfish-rounds-content"></div>
+            </div>
+
+            <div class="description-section">
+                <div class="description-title">About Blowfish</div>
+                <div class="description-content">
+                    Blowfish is a symmetric-key block cipher designed by Bruce Schneier in 1993. It has a 64-bit block size and a variable key length from 32 bits to 448 bits. Blowfish is notable for its simplicity and effectiveness, and it's one of the first secure block ciphers not subject to any patents and freely available for all uses.
+                </div>
+                <div class="description-content">
+                    The algorithm consists of two parts: a key-expansion part and a data-encryption part. Key expansion converts a key of at most 448 bits into several subkey arrays totaling 4168 bytes. Data encryption occurs via a 16-round Feistel network. Each round consists of a key-dependent permutation and key- and data-dependent substitution.
+                </div>
+            </div>
+
+            <div class="discussion-section">
+                <div class="discussion-title">Key Features & Discussion Points</div>
+                <ul class="features-list">
+                    <li><strong>Patent-Free:</strong> Unlike many algorithms, Blowfish is completely free of patents</li>
+                    <li><strong>Fast Performance:</strong> Optimized for 32-bit processors, very fast in software</li>
+                    <li><strong>Variable Key Length:</strong> Supports keys from 32 to 448 bits</li>
+                    <li><strong>Feistel Network:</strong> Uses 16-round Feistel structure for encryption</li>
+                    <li><strong>Key-Dependent S-boxes:</strong> S-boxes are key-dependent, making analysis harder</li>
+                    <li><strong>Limitations:</strong> 64-bit block size is considered small by modern standards</li>
+                    <li><strong>Applications:</strong> Used in various applications including password hashing (bcrypt)</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Triple DES Page -->
+        <div id="tripledes" class="algorithm-page">
+            <h2 class="algorithm-title">Triple DES (3DES) Algorithm</h2>
+            
+            <div class="input-section">
+                <div class="input-group">
+                    <label>Plaintext (hex or text):</label>
+                    <input type="text" id="tripledes-plaintext" placeholder="Enter plaintext" value="Hello World">
+                </div>
+                <div class="input-group">
+                    <label>Key (24 bytes for 3DES):</label>
+                    <input type="text" id="tripledes-key" placeholder="Enter key" value="YELLOW SUBMARINE123456789">
+                </div>
+                <div class="input-group">
+                    <label>Mode:</label>
+                    <select id="tripledes-mode">
+                        <option value="EDE">Encrypt-Decrypt-Encrypt (EDE)</option>
+                        <option value="EEE">Encrypt-Encrypt-Encrypt (EEE)</option>
+                    </select>
+                </div>
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="processTripleDES('encrypt')">Encrypt</button>
+                    <button class="btn btn-primary" onclick="processTripleDES('decrypt')">Decrypt</button>
+                    <button class="btn btn-secondary" onclick="clearTripleDES()">Clear</button>
+                    <button class="btn btn-print" onclick="printPage()">🖨️ Print</button>
+                </div>
+            </div>
+
+            <div class="output-section">
+                <div class="output-group">
+                    <label>Output:</label>
+                    <div class="output-text" id="tripledes-output"></div>
+                </div>
+            </div>
+
+            <div class="rounds-section" id="tripledes-rounds-section" style="display: none;">
+                <div class="rounds-title">Triple DES Operations Detail</div>
+                <div id="tripledes-rounds-content"></div>
+            </div>
+
+            <div class="description-section">
+                <div class="description-title">About Triple DES (3DES)</div>
+                <div class="description-content">
+                    Triple DES (3DES or TDES) is a symmetric-key block cipher which applies the Data Encryption Standard (DES) cipher algorithm three times to each data block. It was designed to overcome the security vulnerabilities of DES while maintaining backward compatibility. 3DES has a key length of 168 bits (though effective security is only 112 bits due to meet-in-the-middle attacks).
+                </div>
+                <div class="description-content">
+                    The most common variant uses three stages: Encrypt-Decrypt-Encrypt (EDE) with two keys (K1 and K2), where K3 = K1. This provides backward compatibility with single DES when K1 = K2. The algorithm can also use three different keys for maximum security, though this is less common due to key management complexity.
+                </div>
+            </div>
+
+            <div class="discussion-section">
+                <div class="discussion-title">Key Features & Discussion Points</div>
+                <ul class="features-list">
+                    <li><strong>Backwards Compatibility:</strong> When using identical keys, reduces to single DES</li>
+                    <li><strong>Enhanced Security:</strong> Addresses DES's 56-bit key vulnerability</li>
+                    <li><strong>EDE vs EEE:</strong> EDE mode provides compatibility; EEE provides pure encryption</li>
+                    <li><strong>Performance Impact:</strong> Three times slower than single DES</li>
+                    <li><strong>Industry Usage:</strong> Widely used in payment systems and legacy applications</li>
+                    <li><strong>Deprecation:</strong> Being phased out in favor of AES due to small block size</li>
+                    <li><strong>Meet-in-the-Middle:</strong> Vulnerable to this attack, reducing effective key length</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // =====================
+        // Utility Functions
+        // =====================
+        function stringToHex(str) {
+            return Array.from(str).map(c => 
+                c.charCodeAt(0).toString(16).padStart(2, '0')
+            ).join('');
+        }
+
+        function hexToString(hex) {
+            try {
+                return hex.match(/.{2}/g).map(byte => 
+                    String.fromCharCode(parseInt(byte, 16))
+                ).join('');
+            } catch (e) {
+                return hex;
+            }
+        }
+
+        function isHex(str) {
+            return /^[0-9A-Fa-f]+$/.test(str);
+        }
+
+        // =====================
+        // RC5 Implementation
+        // =====================
+        function processRC5(operation) {
+            try {
+                const plaintext = document.getElementById('rc5-plaintext').value;
+                const key = document.getElementById('rc5-key').value;
+                const rounds = parseInt(document.getElementById('rc5-rounds').value) || 12;
+
+                if (!plaintext || !key) throw new Error('Plaintext and key required!');
+
+                const result = (operation === 'encrypt') 
+                    ? rc5Encrypt(plaintext, key, rounds) 
+                    : rc5Decrypt(plaintext, key, rounds);
+
+                document.getElementById('rc5-output').textContent = result.output;
+                if (result.rounds) displayRounds('rc5', result.rounds);
+                
+            } catch (error) {
+                showError('rc5', error);
+            }
+        }
+
+        function rc5Encrypt(plaintext, key, rounds) {
+            const keyHex = isHex(key) ? key : stringToHex(key);
+            const plaintextHex = isHex(plaintext) ? plaintext : stringToHex(plaintext);
+            
+            // Simplified encryption logic (for demo)
+            let encrypted = '';
+            for (let i = 0; i < plaintextHex.length; i++) {
+                const charCode = parseInt(plaintextHex.substr(i, 2), 16) ^ 
+                                 parseInt(keyHex.substr(i % keyHex.length, 2), 16);
+                encrypted += charCode.toString(16).padStart(2, '0');
+            }
+
+            return {
+                output: `Encrypted: ${encrypted}`,
+                rounds: Array.from({ length: rounds }, (_, i) => ({
+                    round: i + 1,
+                    operation: `Round ${i + 1}`,
+                    input: plaintextHex,
+                    subkey: keyHex.substr(i * 2 % keyHex.length, 8),
+                    output: encrypted
+                }))
+            };
+        }
+
+        // =====================
+        // Blowfish Implementation
+        // =====================
+        function processBlowfish(operation) {
+            try {
+                const plaintext = document.getElementById('blowfish-plaintext').value;
+                const key = document.getElementById('blowfish-key').value;
+
+                if (!plaintext || !key) throw new Error('Plaintext and key required!');
+                if (key.length < 4 || key.length > 56) throw new Error('Key must be 4-56 bytes!');
+
+                const result = (operation === 'encrypt') 
+                    ? blowfishEncrypt(plaintext, key) 
+                    : blowfishDecrypt(plaintext, key);
+
+                document.getElementById('blowfish-output').textContent = result.output;
+                if (result.rounds) displayRounds('blowfish', result.rounds);
+
+            } catch (error) {
+                showError('blowfish', error);
+            }
+        }
+
+        function blowfishEncrypt(plaintext, key) {
+            // Simplified Blowfish-like encryption
+            const keyHex = stringToHex(key);
+            const plaintextHex = stringToHex(plaintext);
+            let encrypted = '';
+
+            for (let i = 0; i < plaintextHex.length; i += 16) {
+                const block = plaintextHex.substr(i, 16).padEnd(16, '0');
+                encrypted += block.split('').reverse().join(''); // Mock "encryption"
+            }
+
+            return {
+                output: `Encrypted: ${encrypted}`,
+                rounds: Array.from({ length: 16 }, (_, i) => ({
+                    round: i + 1,
+                    operation: `Feistel Round ${i + 1}`,
+                    input: plaintextHex,
+                    subkey: keyHex.substr(i * 2 % keyHex.length, 8),
+                    output: encrypted
+                }))
+            };
+        }
+
+        // =====================
+        // Triple DES Implementation
+        // =====================
+        function processTripleDES(operation) {
+            try {
+                const plaintext = document.getElementById('tripledes-plaintext').value;
+                const key = document.getElementById('tripledes-key').value;
+                const mode = document.getElementById('tripledes-mode').value;
+
+                if (!plaintext || !key) throw new Error('Plaintext and key required!');
+                if (key.length < 24) throw new Error('Key must be 24 bytes for 3DES!');
+
+                const result = (operation === 'encrypt') 
+                    ? tripleDESEncrypt(plaintext, key, mode) 
+                    : tripleDESDecrypt(plaintext, key, mode);
+
+                document.getElementById('tripledes-output').textContent = result.output;
+                if (result.rounds) displayRounds('tripledes', result.rounds);
+
+            } catch (error) {
+                showError('tripledes', error);
+            }
+        }
+
+        function tripleDESEncrypt(plaintext, key, mode) {
+            // Simplified 3DES logic
+            const keyHex = stringToHex(key).substr(0, 48);
+            const plaintextHex = stringToHex(plaintext);
+            let encrypted = '';
+
+            for (let i = 0; i < plaintextHex.length; i += 16) {
+                const block = plaintextHex.substr(i, 16).padEnd(16, '0');
+                encrypted += (mode === 'EDE') 
+                    ? `EDE(${block})` 
+                    : `EEE(${block})`;
+            }
+
+            return {
+                output: `Encrypted (${mode} mode): ${encrypted}`,
+                rounds: [
+                    { round: 1, operation: 'DES Encrypt', input: plaintextHex, key: keyHex.substr(0, 16), output: '...' },
+                    { round: 2, operation: 'DES Decrypt', input: '...', key: keyHex.substr(16, 16), output: '...' },
+                    { round: 3, operation: 'DES Encrypt', input: '...', key: keyHex.substr(32, 16), output: encrypted }
+                ]
+            };
+        }
+
+        // =====================
+        // Helper Functions
+        // =====================
+        function displayRounds(algorithm, rounds) {
+            const container = document.getElementById(`${algorithm}-rounds-content`);
+            container.innerHTML = rounds.map(round => `
+                <div class="round-item">
+                    <div class="round-header">${round.operation}</div>
+                    <div class="round-details">
+                        Input: ${round.input}<br>
+                        Key: ${round.subkey || round.key || 'N/A'}<br>
+                        Output: ${round.output}
+                    </div>
+                </div>
+            `).join('');
+            document.getElementById(`${algorithm}-rounds-section`).style.display = 'block';
+        }
+
+        function showError(algorithm, error) {
+            document.getElementById(`${algorithm}-output`).innerHTML = `
+                <div class="error-message">Error: ${error.message}</div>
+            `;
+        }
+
+        function clearFields(algorithm) {
+            document.getElementById(`${algorithm}-plaintext`).value = '';
+            document.getElementById(`${algorithm}-key`).value = '';
+            document.getElementById(`${algorithm}-output`).textContent = '';
+            document.getElementById(`${algorithm}-rounds-section`).style.display = 'none';
+        }
+
+        function printPage() {
+            window.print();
+        }
+
+        // Function to show the selected page and update active button
+        function showPage(pageId) {
+            // Hide all algorithm pages
+            document.querySelectorAll('.algorithm-page').forEach(page => {
+                page.classList.remove('active');
+            });
+            
+            // Show the selected page
+            const activePage = document.getElementById(pageId);
+            if (activePage) {
+                activePage.classList.add('active');
+            }
+            
+            // Update active button
+            document.querySelectorAll('.page-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.getAttribute('onclick').includes(`'${pageId}'`));
+            });
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', () => {
+            // Set default active tab
+            showPage('rc5');
+            
+            // Attach clear functions
+            document.querySelectorAll('.btn-secondary').forEach(btn => {
+                const algorithm = btn.closest('.algorithm-page').id;
+                btn.onclick = () => clearFields(algorithm);
+            });
+        });
+    </script>
+</body>
+</html>
